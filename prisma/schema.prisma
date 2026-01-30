@@ -1,0 +1,402 @@
+// ==========================
+// Generator & Datasource
+// ==========================
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// ==========================
+// ENUMS
+// ==========================
+
+enum UserRole {
+    ADMIN // super_admin in frontend
+    R_ADMIN // r-admin in frontend
+    PENTESTER // pentester in frontend
+    CLIENT // client in frontend
+    PARTNER // partner in frontend
+}
+
+enum AccountStatus {
+    ACTIVE // 'active' in frontend
+    INACTIVE // 'inactive' in frontend
+    PENDING // Account created but not verified/activated
+    SUSPENDED // Temporarily disabled by admin
+    DELETED // Soft deleted
+}
+
+enum OTPType {
+    LOGIN // For login authentication
+    SIGNUP // For email verification during signup
+}
+
+enum OAuthProviderType {
+    GOOGLE
+    MICROSOFT // Future support
+}
+
+// ==========================
+// USER MODEL (Base for all roles)
+// ==========================
+
+model User {
+    id    String @id @default(uuid())
+    email String @unique
+
+    // Password field (NOT USED - all auth is OTP or OAuth)
+    password String? // Always NULL for this system
+
+    // Basic Info
+    firstName String
+    lastName  String
+    phone     String @unique // Format: +91XXXXXXXXXX
+
+    // Role & Status
+    role   UserRole
+    status AccountStatus @default(PENDING)
+
+    // Company Info (Only for R_ADMIN and PENTESTER)
+    companyEmail  String? // e.g., rana@rivedix.com
+    companyDomain String? // e.g., rivedix.com
+
+    // Profile Image
+    profileImage String? // S3 URL or local path
+
+    // Additional fields based on role (will be in separate tables)
+    // See Client, Partner, Pentester models below
+
+    // Email Verification
+    isEmailVerified Boolean   @default(false)
+    emailVerifiedAt DateTime?
+
+    // Login Tracking
+    lastLogin   DateTime?
+    lastLoginIp String?
+
+    // Timestamps
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    deletedAt DateTime? // Soft delete
+
+    // Relations
+    sessions       Session[]
+    otpCodes       OTPCode[]
+    oauthProviders OAuthProvider[]
+
+    // Audit logs
+    auditLogs AuthAuditLog[]
+
+    // Role-specific relations
+    createdRAdmins User[]  @relation("AdminCreatedRAdmins")
+    createdBy      User?   @relation("AdminCreatedRAdmins", fields: [createdById], references: [id])
+    createdById    String?
+
+    createdPentesters User[]  @relation("RAdminCreatedPentesters")
+    createdByRAdmin   User?   @relation("RAdminCreatedPentesters", fields: [createdByRAdminId], references: [id])
+    createdByRAdminId String?
+
+    // Extended profile relations
+    clientProfile    Client?
+    partnerProfile   Partner?
+    pentesterProfile Pentester?
+
+    @@index([email])
+    @@index([role])
+    @@index([status])
+    @@index([companyDomain])
+    @@index([phone])
+    @@map("users")
+}
+
+// ==========================
+// SESSION MODEL (For all logged-in users)
+// ==========================
+
+model Session {
+    id         String   @id @default(uuid())
+    userId     String
+    token      String   @unique // Random secure token (stored in HTTP-only cookie)
+    expiresAt  DateTime
+    rememberMe Boolean  @default(false)
+
+    // Security Tracking
+    userAgent    String?  @db.Text
+    ipAddress    String?
+    lastActivity DateTime @default(now())
+
+    // Device Info (for "Active Sessions" feature)
+    deviceName String? // e.g., "Chrome on Windows"
+    deviceType String? // e.g., "desktop", "mobile"
+
+    // Timestamps
+    createdAt DateTime @default(now())
+
+    // Relations
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([token])
+    @@index([userId])
+    @@index([expiresAt])
+    @@index([userId, expiresAt])
+    @@map("sessions")
+}
+
+// ==========================
+// OTP MODEL (For OTP-based authentication)
+// ==========================
+
+model OTPCode {
+    id     String  @id @default(uuid())
+    userId String? // NULL if user doesn't exist yet (signup flow)
+    email  String // Email where OTP is sent
+    code   String // 6-digit code (MUST be hashed before storing!)
+    type   OTPType
+
+    // Expiry & Usage
+    expiresAt DateTime // Typically 10 minutes from creation
+    usedAt    DateTime? // Mark as used instead of deleting (audit trail)
+
+    // Rate Limiting Tracking
+    attempts Int @default(0) // Track failed verification attempts
+
+    // Timestamps
+    createdAt DateTime @default(now())
+
+    // Relations
+    user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([email])
+    @@index([email, type])
+    @@index([code])
+    @@index([expiresAt])
+    @@index([userId])
+    @@map("otp_codes")
+}
+
+// ==========================
+// OAUTH PROVIDER MODEL (For Google OAuth)
+// ==========================
+
+model OAuthProvider {
+    id         String            @id @default(uuid())
+    userId     String
+    provider   OAuthProviderType
+    providerId String // Unique ID from provider (Google's "sub" claim)
+
+    // Profile Data from Provider
+    email   String? // Email from OAuth provider
+    name    String? // Full name from OAuth provider
+    picture String? // Profile picture URL from OAuth provider
+
+    // Token Storage (optional - for API calls to Google on behalf of user)
+    accessToken  String?   @db.Text
+    refreshToken String?   @db.Text
+    expiresAt    DateTime?
+
+    // Tracking
+    linkedAt   DateTime @default(now())
+    lastUsedAt DateTime @default(now())
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, provider])
+    @@unique([provider, providerId])
+    @@index([userId])
+    @@index([provider, providerId])
+    @@map("oauth_providers")
+}
+
+// ==========================
+// CLIENT PROFILE (Extended info for CLIENT role)
+// ==========================
+
+model Client {
+    id     String @id @default(uuid())
+    userId String @unique
+
+    // From ClientProfile type
+    clientId    String @unique // Custom client ID (e.g., "CLI-001")
+    companyName String
+    industry    String
+    address     String
+
+    // SPOC (Single Point of Contact) - from frontend types
+    pointOfContact      String
+    pointOfContactEmail String
+    pointOfContactPhone String
+
+    // Optional fields from frontend
+    website String?
+
+    // Partner Association (from frontend types)
+    hasPartner Boolean @default(false)
+    partnerId  String?
+
+    // User Type (from frontend: 'client' | 'partner')
+    userType String @default("client") // 'client' or 'partner'
+
+    // Stats (from frontend types)
+    totalProjects  Int @default(0)
+    activeProjects Int @default(0)
+
+    // Dates (from frontend)
+    joinedDate DateTime @default(now())
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    partner Partner? @relation("PartnerClients", fields: [partnerId], references: [id])
+
+    @@index([userId])
+    @@index([companyName])
+    @@index([clientId])
+    @@index([partnerId])
+    @@map("clients")
+}
+
+// ==========================
+// PARTNER PROFILE (Extended info for PARTNER role)
+// ==========================
+
+model Partner {
+    id     String @id @default(uuid())
+    userId String @unique
+
+    // From Partner type in frontend
+    companyName String
+    industry    String
+    address     String
+    website     String?
+
+    // SPOC (from frontend types)
+    pointOfContact      String
+    pointOfContactEmail String
+    pointOfContactPhone String
+
+    // User Type (from frontend: 'client' | 'partner')
+    userType String @default("partner")
+
+    // Stats (from frontend types)
+    totalProjects  Int @default(0)
+    activeProjects Int @default(0)
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    clients Client[] @relation("PartnerClients") // Clients referred by this partner
+
+    @@index([userId])
+    @@index([companyName])
+    @@map("partners")
+}
+
+// ==========================
+// PENTESTER PROFILE (Extended info for PENTESTER role)
+// ==========================
+
+model Pentester {
+    id     String @id @default(uuid())
+    userId String @unique
+
+    // From PentesterProfile type in frontend
+    specialization String
+    location       String
+    bio            String?  @db.Text
+    memberSince    DateTime @default(now())
+
+    // Stats (from frontend types)
+    totalProjects      Int @default(0)
+    completedProjects  Int @default(0)
+    inProgressProjects Int @default(0)
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([specialization])
+    @@map("pentesters")
+}
+
+// ==========================
+// AUDIT LOG (Track auth events)
+// ==========================
+
+model AuthAuditLog {
+    id     String  @id @default(uuid())
+    userId String?
+
+    // Event Info
+    event       String // "LOGIN_SUCCESS", "LOGIN_FAILED", "OTP_SENT", etc.
+    eventType   String // "AUTH", "ACCOUNT", "SECURITY"
+    description String? @db.Text
+
+    // Metadata
+    metadata Json? // Additional data
+
+    // Tracking
+    ipAddress String?
+    userAgent String? @db.Text
+
+    // Timestamps
+    createdAt DateTime @default(now())
+
+    // Relations
+    user User? @relation(fields: [userId], references: [id])
+
+    @@index([userId])
+    @@index([event])
+    @@index([eventType])
+    @@index([createdAt])
+    @@map("auth_audit_logs")
+}
+
+// ==========================
+// ACCOUNT INVITATION (Optional - for invite flow)
+// ==========================
+
+model AccountInvitation {
+    id        String   @id @default(uuid())
+    email     String
+    role      UserRole
+    invitedBy String // User ID of who sent the invite
+
+    token     String   @unique // Unique token for invitation link
+    expiresAt DateTime
+
+    // Status
+    status     String    @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+    acceptedAt DateTime?
+
+    // Metadata
+    metadata Json? // Store additional data (e.g., company info for pentester)
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([email])
+    @@index([token])
+    @@index([status])
+    @@index([expiresAt])
+    @@map("account_invitations")
+}
