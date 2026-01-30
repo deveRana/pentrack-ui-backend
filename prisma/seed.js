@@ -109,7 +109,7 @@ async function main() {
     console.log('  Note: Use Google OAuth with @rivedix.com email');
     console.log('');
     console.log('CLIENT (OTP Login):');
-    console.log('  Email: client1@example.com');
+    console.log('  Email: yograjhukumdar0@gmail.com');
     console.log('  Phone: +919876543215');
     console.log('  Note: Use OTP sent to email for login');
     console.log('');

@@ -100,7 +100,7 @@ const users = [
     // CLIENT - OTP Login
     // ==========================================
     {
-        email: 'client1@example.com',
+        email: 'yograjhukumdar0@gmail.com',
         firstName: 'Tech',
         lastName: 'Corp',
         phone: '+919876543215',
