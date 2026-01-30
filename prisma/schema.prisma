@@ -1,3 +1,15 @@
+// ==========================================================================================
+// PENTRACK - COMPLETE PRODUCTION-READY PRISMA SCHEMA
+// ==========================================================================================
+// This schema follows industry best practices:
+// - Proper normalization (no JSON for relational data)
+// - Enums for controlled values
+// - Audit trails for compliance
+// - Performance indexes
+// - Cascade deletes
+// - Soft deletes where needed
+// ==========================================================================================
+
 // ==========================
 // Generator & Datasource
 // ==========================
@@ -10,21 +22,25 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-// ==========================
+// ==========================================================================================
 // ENUMS
-// ==========================
+// ==========================================================================================
+
+// --------------------------------------------------
+// USER & AUTH ENUMS
+// --------------------------------------------------
 
 enum UserRole {
-    ADMIN // super_admin in frontend
-    R_ADMIN // r-admin in frontend
-    PENTESTER // pentester in frontend
-    CLIENT // client in frontend
-    PARTNER // partner in frontend
+    ADMIN // super_admin in frontend (Super Admin)
+    R_ADMIN // r-admin in frontend (R Admin + Pentester capabilities)
+    PENTESTER // pentester in frontend (Penetration Tester)
+    CLIENT // client in frontend (Client organization)
+    PARTNER // partner in frontend (Partner organization)
 }
 
 enum AccountStatus {
-    ACTIVE // 'active' in frontend
-    INACTIVE // 'inactive' in frontend
+    ACTIVE // 'active' in frontend - Account is active
+    INACTIVE // 'inactive' in frontend - Account is inactive
     PENDING // Account created but not verified/activated
     SUSPENDED // Temporarily disabled by admin
     DELETED // Soft deleted
@@ -33,16 +49,121 @@ enum AccountStatus {
 enum OTPType {
     LOGIN // For login authentication
     SIGNUP // For email verification during signup
+    PASSWORD_RESET // For password reset (future)
 }
 
 enum OAuthProviderType {
     GOOGLE
     MICROSOFT // Future support
+    GITHUB // Future support
 }
 
-// ==========================
+// --------------------------------------------------
+// PROJECT ENUMS
+// --------------------------------------------------
+
+enum ProjectStatus {
+    NOT_STARTED // 'not_started' in frontend
+    IN_PROGRESS // 'in_progress' in frontend
+    TESTING_COMPLETE // 'testing_complete' in frontend
+    REPORT_SUBMITTED // 'report_submitted' in frontend
+    UNDER_REVIEW // 'Under Review' in frontend
+    REWORK_NEEDED // 'rework_needed' in frontend
+    COMPLETED // 'completed' in frontend
+    REJECTED // 'rejected' in frontend
+    OVERDUE // 'overdue' in frontend
+}
+
+enum ProjectPriority {
+    LOW // 'low' in frontend
+    MEDIUM // 'medium' in frontend
+    HIGH // 'high' in frontend
+    CRITICAL // 'critical' in frontend
+}
+
+enum ProjectActivityType {
+    CREATED // Project created
+    STATUS_CHANGED // Status updated
+    PENTESTER_ASSIGNED // Pentester assigned to project
+    PENTESTER_CHANGED // Pentester reassigned
+    DEADLINE_CHANGED // Deadline modified
+    SCOPE_UPDATED // Scope of work updated
+    PRIORITY_CHANGED // Priority changed
+    REPORT_SUBMITTED // Report submitted for review
+    REPORT_APPROVED // Report approved
+    REPORT_REJECTED // Report rejected
+    COMMENT_ADDED // Comment added to project
+    TIMELINE_UPDATED // Timeline updated
+}
+
+// --------------------------------------------------
+// REPORT ENUMS
+// --------------------------------------------------
+
+enum ReportStatus {
+    PENDING // Initial submission, waiting for review
+    UNDER_REVIEW // Being reviewed by R-Admin
+    APPROVED // Approved and published
+    REJECTED // Rejected, needs rework
+    RESUBMITTED // Resubmitted after rejection
+}
+
+// --------------------------------------------------
+// NOTIFICATION ENUMS
+// --------------------------------------------------
+
+enum NotificationType {
+    REPORT // Report-related notifications
+    STATUS // Status change notifications
+    PROJECT // Project-related notifications
+    DEADLINE // Deadline reminders
+    OVERDUE // Overdue alerts
+    USER // User-related notifications
+    SYSTEM // System notifications
+}
+
+enum NotificationCategory {
+    PROJECT_UPDATES // Project updates and changes
+    REPORT_UPDATES // Report submissions and reviews
+    DEADLINE_REMINDERS // Upcoming deadlines
+    STATUS_CHANGES // Status changes
+    USER_ACTIONS // User actions (assignments, etc.)
+    SYSTEM_ALERTS // System-level alerts
+}
+
+enum NotificationPriority {
+    LOW
+    NORMAL
+    HIGH
+    CRITICAL
+}
+
+// --------------------------------------------------
+// SYSTEM LOG ENUMS
+// --------------------------------------------------
+
+enum SystemLogType {
+    CREATE // Entity creation
+    UPDATE // Entity update
+    DELETE // Entity deletion
+    AUTH // Authentication events
+    REPORT // Report events
+    EXPORT // Data export events
+    BACKUP // Backup events
+}
+
+enum SystemLogStatus {
+    SUCCESS
+    FAILED
+}
+
+// ==========================================================================================
+// USER & AUTH MODELS
+// ==========================================================================================
+
+// --------------------------------------------------
 // USER MODEL (Base for all roles)
-// ==========================
+// --------------------------------------------------
 
 model User {
     id    String @id @default(uuid())
@@ -67,9 +188,6 @@ model User {
     // Profile Image
     profileImage String? // S3 URL or local path
 
-    // Additional fields based on role (will be in separate tables)
-    // See Client, Partner, Pentester models below
-
     // Email Verification
     isEmailVerified Boolean   @default(false)
     emailVerifiedAt DateTime?
@@ -83,39 +201,61 @@ model User {
     updatedAt DateTime  @updatedAt
     deletedAt DateTime? // Soft delete
 
-    // Relations
+    // ============================================
+    // RELATIONS
+    // ============================================
+
+    // Auth relations
     sessions       Session[]
     otpCodes       OTPCode[]
     oauthProviders OAuthProvider[]
+    auditLogs      AuthAuditLog[]
 
-    // Audit logs
-    auditLogs AuthAuditLog[]
-
-    // Role-specific relations
-    createdRAdmins User[]  @relation("AdminCreatedRAdmins")
-    createdBy      User?   @relation("AdminCreatedRAdmins", fields: [createdById], references: [id])
-    createdById    String?
-
-    createdPentesters User[]  @relation("RAdminCreatedPentesters")
-    createdByRAdmin   User?   @relation("RAdminCreatedPentesters", fields: [createdByRAdminId], references: [id])
-    createdByRAdminId String?
-
-    // Extended profile relations
+    // Role-specific profile relations
     clientProfile    Client?
     partnerProfile   Partner?
     pentesterProfile Pentester?
+
+    // Hierarchy relations (who created whom)
+    createdRAdmins    User[]    @relation("AdminCreatedRAdmins")
+    createdBy         User?     @relation("AdminCreatedRAdmins", fields: [createdById], references: [id])
+    createdById       String?
+    createdPentesters User[]    @relation("RAdminCreatedPentesters")
+    createdByRAdmin   User?     @relation("RAdminCreatedPentesters", fields: [createdByRAdminId], references: [id])
+    createdByRAdminId String?
+    createdClients    Client[]  @relation("RAdminCreatedClients")
+    createdPartners   Partner[] @relation("RAdminCreatedPartners")
+
+    // Resource creation relations
+    createdServiceCategories ServiceCategory[] @relation("RAdminCreatedServiceCategories")
+    createdSubServices       SubService[]      @relation("RAdminCreatedSubServices")
+    createdSecurityChecks    SecurityCheck[]   @relation("RAdminCreatedSecurityChecks")
+
+    // Project relations
+    managedProjects   Project[]         @relation("RAdminManagedProjects") // Projects managed by R-Admin
+    assignedProjects  Project[]         @relation("PentesterAssignedProjects") // Projects assigned to Pentester
+    projectActivities ProjectActivity[] @relation("UserProjectActivities") // Project activities by this user
+
+    // Report relations
+    submittedReports Report[] @relation("PentesterSubmittedReports")
+    reviewedReports  Report[] @relation("RAdminReviewedReports")
+
+    // Notification relations
+    notifications Notification[] @relation("UserNotifications")
 
     @@index([email])
     @@index([role])
     @@index([status])
     @@index([companyDomain])
     @@index([phone])
+    @@index([createdById])
+    @@index([createdByRAdminId])
     @@map("users")
 }
 
-// ==========================
-// SESSION MODEL (For all logged-in users)
-// ==========================
+// --------------------------------------------------
+// SESSION MODEL
+// --------------------------------------------------
 
 model Session {
     id         String   @id @default(uuid())
@@ -146,9 +286,9 @@ model Session {
     @@map("sessions")
 }
 
-// ==========================
-// OTP MODEL (For OTP-based authentication)
-// ==========================
+// --------------------------------------------------
+// OTP MODEL
+// --------------------------------------------------
 
 model OTPCode {
     id     String  @id @default(uuid())
@@ -178,9 +318,9 @@ model OTPCode {
     @@map("otp_codes")
 }
 
-// ==========================
-// OAUTH PROVIDER MODEL (For Google OAuth)
-// ==========================
+// --------------------------------------------------
+// OAUTH PROVIDER MODEL
+// --------------------------------------------------
 
 model OAuthProvider {
     id         String            @id @default(uuid())
@@ -216,80 +356,90 @@ model OAuthProvider {
     @@map("oauth_providers")
 }
 
-// ==========================
-// CLIENT PROFILE (Extended info for CLIENT role)
-// ==========================
+// ==========================================================================================
+// PROFILE MODELS
+// ==========================================================================================
+
+// --------------------------------------------------
+// CLIENT PROFILE MODEL
+// --------------------------------------------------
 
 model Client {
     id     String @id @default(uuid())
     userId String @unique
 
-    // From ClientProfile type
-    clientId    String @unique // Custom client ID (e.g., "CLI-001")
+    // Client ID (e.g., "CLI-001")
+    clientId String @unique
+
+    // Company Details
     companyName String
     industry    String
     address     String
+    website     String?
 
-    // SPOC (Single Point of Contact) - from frontend types
+    // SPOC (Single Point of Contact)
     pointOfContact      String
     pointOfContactEmail String
     pointOfContactPhone String
 
-    // Optional fields from frontend
-    website String?
-
-    // Partner Association (from frontend types)
+    // Partner Association
     hasPartner Boolean @default(false)
     partnerId  String?
 
-    // User Type (from frontend: 'client' | 'partner')
+    // User Type
     userType String @default("client") // 'client' or 'partner'
 
-    // Stats (from frontend types)
+    // Stats (updated by triggers/application logic)
     totalProjects  Int @default(0)
     activeProjects Int @default(0)
 
-    // Dates (from frontend)
+    // Dates
     joinedDate DateTime @default(now())
 
     // Timestamps
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    // Created By (R-Admin who created this client)
+    createdById String?
+    createdBy   User?   @relation("RAdminCreatedClients", fields: [createdById], references: [id])
+
     // Relations
-    user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    partner Partner? @relation("PartnerClients", fields: [partnerId], references: [id])
+    user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    partner  Partner?  @relation("PartnerClients", fields: [partnerId], references: [id])
+    projects Project[] @relation("ClientProjects")
 
     @@index([userId])
     @@index([companyName])
     @@index([clientId])
     @@index([partnerId])
+    @@index([createdById])
     @@map("clients")
 }
 
-// ==========================
-// PARTNER PROFILE (Extended info for PARTNER role)
-// ==========================
+// --------------------------------------------------
+// PARTNER PROFILE MODEL
+// --------------------------------------------------
 
 model Partner {
     id     String @id @default(uuid())
     userId String @unique
 
-    // From Partner type in frontend
+    // Company Details
     companyName String
     industry    String
     address     String
     website     String?
 
-    // SPOC (from frontend types)
+    // SPOC
     pointOfContact      String
     pointOfContactEmail String
     pointOfContactPhone String
 
-    // User Type (from frontend: 'client' | 'partner')
+    // User Type
     userType String @default("partner")
 
-    // Stats (from frontend types)
+    // Stats
     totalProjects  Int @default(0)
     activeProjects Int @default(0)
 
@@ -297,30 +447,36 @@ model Partner {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    // Created By (R-Admin who created this partner)
+    createdById String?
+    createdBy   User?   @relation("RAdminCreatedPartners", fields: [createdById], references: [id])
+
     // Relations
-    user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    clients Client[] @relation("PartnerClients") // Clients referred by this partner
+    user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    clients  Client[]  @relation("PartnerClients")
+    projects Project[]
 
     @@index([userId])
     @@index([companyName])
+    @@index([createdById])
     @@map("partners")
 }
 
-// ==========================
-// PENTESTER PROFILE (Extended info for PENTESTER role)
-// ==========================
+// --------------------------------------------------
+// PENTESTER PROFILE MODEL
+// --------------------------------------------------
 
 model Pentester {
     id     String @id @default(uuid())
     userId String @unique
 
-    // From PentesterProfile type in frontend
+    // Profile Info
     specialization String
     location       String
     bio            String?  @db.Text
     memberSince    DateTime @default(now())
 
-    // Stats (from frontend types)
+    // Stats (updated by triggers/application logic)
     totalProjects      Int @default(0)
     completedProjects  Int @default(0)
     inProgressProjects Int @default(0)
@@ -337,9 +493,429 @@ model Pentester {
     @@map("pentesters")
 }
 
-// ==========================
-// AUDIT LOG (Track auth events)
-// ==========================
+// ==========================================================================================
+// SERVICE & CHECK MODELS
+// ==========================================================================================
+
+// --------------------------------------------------
+// SERVICE CATEGORY MODEL
+// --------------------------------------------------
+
+model ServiceCategory {
+    id String @id @default(uuid())
+
+    // Basic Info
+    name        String  @unique
+    description String? @db.Text
+
+    // Created By (R-Admin)
+    createdById String
+    createdBy   User   @relation("RAdminCreatedServiceCategories", fields: [createdById], references: [id])
+
+    // Status
+    isActive Boolean @default(true)
+
+    // Stats (computed or updated by triggers)
+    projectCount Int @default(0)
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    subServices SubService[]
+    projects    Project[]
+
+    @@index([createdById])
+    @@index([name])
+    @@index([isActive])
+    @@map("service_categories")
+}
+
+// --------------------------------------------------
+// SUB SERVICE MODEL (Normalized - not JSON)
+// --------------------------------------------------
+
+model SubService {
+    id String @id @default(uuid())
+
+    // Service Category
+    serviceCategoryId String
+    serviceCategory   ServiceCategory @relation(fields: [serviceCategoryId], references: [id], onDelete: Cascade)
+
+    // Basic Info
+    name        String
+    description String? @db.Text
+
+    // Status
+    isActive Boolean @default(true)
+
+    // Created By (R-Admin)
+    createdById String
+    createdBy   User   @relation("RAdminCreatedSubServices", fields: [createdById], references: [id])
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([serviceCategoryId, name]) // Unique within a category
+    @@index([serviceCategoryId])
+    @@index([createdById])
+    @@index([isActive])
+    @@map("sub_services")
+}
+
+// --------------------------------------------------
+// SECURITY CHECK MODEL (Check Templates)
+// --------------------------------------------------
+
+model SecurityCheck {
+    id String @id @default(uuid())
+
+    // Check Details
+    title       String
+    description String? @db.Text
+
+    // Service Association
+    serviceCategory String
+    subService      String
+
+    // Mandatory Flag
+    isMandatory Boolean @default(false)
+
+    // Created By (R-Admin)
+    createdById String
+    createdBy   User   @relation("RAdminCreatedSecurityChecks", fields: [createdById], references: [id])
+
+    // Status
+    isActive Boolean @default(true)
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    reportChecks ReportCheck[]
+
+    @@index([createdById])
+    @@index([serviceCategory])
+    @@index([subService])
+    @@index([isMandatory])
+    @@index([isActive])
+    @@map("security_checks")
+}
+
+// ==========================================================================================
+// PROJECT MODELS
+// ==========================================================================================
+
+// --------------------------------------------------
+// PROJECT MODEL
+// --------------------------------------------------
+
+model Project {
+    id String @id @default(uuid())
+
+    // Basic Info
+    name        String
+    description String? @db.Text
+
+    // Client & Partner
+    clientId  String
+    client    Client   @relation("ClientProjects", fields: [clientId], references: [id])
+    partnerId String? // Optional - if referred by partner
+    partner   Partner? @relation(fields: [partnerId], references: [id])
+
+    // Management & Assignment
+    radminId    String // R-Admin who manages/created this project
+    radmin      User    @relation("RAdminManagedProjects", fields: [radminId], references: [id])
+    pentesterId String? // Pentester assigned (can be R-Admin if they're doing the work)
+    pentester   User?   @relation("PentesterAssignedProjects", fields: [pentesterId], references: [id])
+    assignedBy  String? // Who assigned the pentester
+
+    // Service
+    serviceCategoryId String?
+    serviceCategory   ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
+    services          String[] // Array of service names (e.g., ["VAPT", "Web Application Testing"])
+
+    // Status & Priority
+    status   ProjectStatus   @default(NOT_STARTED)
+    priority ProjectPriority @default(MEDIUM)
+
+    // Dates
+    startDate DateTime?
+    endDate   DateTime?
+    deadline  DateTime?
+
+    // Progress
+    progress Int @default(0) // 0-100
+
+    // Scope Details
+    scopeOfWork String? @db.Text
+    objectives  String? @db.Text
+    targetUrls  String? @db.Text
+
+    // Metadata
+    createdBy String? // Who created the project (usually R-Admin)
+
+    // Timestamps
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    deletedAt DateTime? // Soft delete
+
+    // Relations
+    reports       Report[]
+    timelines     ProjectTimeline[]
+    activities    ProjectActivity[]
+    notifications Notification[]
+
+    @@index([clientId])
+    @@index([partnerId])
+    @@index([radminId])
+    @@index([pentesterId])
+    @@index([status])
+    @@index([priority])
+    @@index([serviceCategoryId])
+    @@index([startDate])
+    @@index([endDate])
+    @@index([deadline])
+    @@map("projects")
+}
+
+// --------------------------------------------------
+// PROJECT TIMELINE MODEL
+// --------------------------------------------------
+
+model ProjectTimeline {
+    id String @id @default(uuid())
+
+    // Project relation
+    projectId String
+    project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+    // Timeline stage
+    status      ProjectStatus // Use ProjectStatus enum for consistency
+    date        DateTime? // When this status was reached (null if not yet reached)
+    completed   Boolean       @default(false)
+    description String? // Description of this stage
+
+    // Order
+    order Int @default(0) // Display order (0, 1, 2, ...)
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([projectId])
+    @@index([projectId, order])
+    @@index([status])
+    @@map("project_timelines")
+}
+
+// --------------------------------------------------
+// PROJECT ACTIVITY MODEL (Audit Trail)
+// --------------------------------------------------
+
+model ProjectActivity {
+    id String @id @default(uuid())
+
+    // Project relation
+    projectId String
+    project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+    // User who performed the action
+    userId String
+    user   User   @relation("UserProjectActivities", fields: [userId], references: [id])
+
+    // Activity details
+    activityType ProjectActivityType
+    description  String              @db.Text
+
+    // Metadata (store additional context as JSON)
+    metadata Json? // e.g., {oldStatus: "IN_PROGRESS", newStatus: "COMPLETED"}
+
+    // Timestamps
+    createdAt DateTime @default(now())
+
+    @@index([projectId])
+    @@index([userId])
+    @@index([activityType])
+    @@index([createdAt])
+    @@index([projectId, createdAt]) // Composite index for timeline queries
+    @@map("project_activities")
+}
+
+// ==========================================================================================
+// REPORT MODELS
+// ==========================================================================================
+
+// --------------------------------------------------
+// REPORT MODEL
+// --------------------------------------------------
+
+model Report {
+    id String @id @default(uuid())
+
+    // Project & User Relations
+    projectId   String
+    project     Project @relation(fields: [projectId], references: [id])
+    pentesterId String // Who submitted
+    pentester   User    @relation("PentesterSubmittedReports", fields: [pentesterId], references: [id])
+    reviewerId  String? // R-Admin who reviews
+    reviewer    User?   @relation("RAdminReviewedReports", fields: [reviewerId], references: [id])
+
+    // Version Tracking
+    version Int @default(1)
+
+    // File Info
+    fileName String
+    fileUrl  String
+    fileSize Int // in bytes
+    fileType String // e.g., "application/pdf"
+
+    // Status
+    status ReportStatus @default(PENDING)
+
+    // Submission Details
+    submissionNotes String? @db.Text
+
+    // Review Details
+    reviewedAt      DateTime?
+    reviewNotes     String?   @db.Text // Approval notes
+    rejectionReason String?   @db.Text
+
+    // Timestamps
+    submittedAt DateTime @default(now())
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Relations
+    history ReportHistory[]
+    checks  ReportCheck[]
+
+    @@index([projectId])
+    @@index([pentesterId])
+    @@index([reviewerId])
+    @@index([status])
+    @@index([version])
+    @@index([submittedAt])
+    @@map("reports")
+}
+
+// --------------------------------------------------
+// REPORT HISTORY MODEL
+// --------------------------------------------------
+
+model ReportHistory {
+    id String @id @default(uuid())
+
+    // Report relation
+    reportId String
+    report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+    // Version info
+    version Int
+    status  ReportStatus
+
+    // Dates
+    submittedDate DateTime
+    reviewedDate  DateTime?
+
+    // File info
+    fileName String
+    fileUrl  String
+
+    // Review details
+    approvalNotes   String? @db.Text
+    rejectionReason String? @db.Text
+
+    // Timestamps
+    createdAt DateTime @default(now())
+
+    @@index([reportId])
+    @@index([reportId, version])
+    @@index([status])
+    @@map("report_histories")
+}
+
+// --------------------------------------------------
+// REPORT CHECK MODEL (Normalized - not JSON)
+// --------------------------------------------------
+
+model ReportCheck {
+    id String @id @default(uuid())
+
+    // Report relation
+    reportId String
+    report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+    // Security check template relation
+    securityCheckId String
+    securityCheck   SecurityCheck @relation(fields: [securityCheckId], references: [id])
+
+    // Completion status
+    completed Boolean @default(false)
+    notes     String? @db.Text
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([reportId, securityCheckId]) // Can't have duplicate checks per report
+    @@index([reportId])
+    @@index([securityCheckId])
+    @@index([completed])
+    @@map("report_checks")
+}
+
+// ==========================================================================================
+// NOTIFICATION MODEL
+// ==========================================================================================
+
+model Notification {
+    id String @id @default(uuid())
+
+    // Recipient
+    userId String
+    user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+    // Notification Details
+    type     NotificationType
+    category NotificationCategory
+    priority NotificationPriority @default(NORMAL)
+    title    String
+    message  String               @db.Text
+    link     String? // Optional link to relevant page
+
+    // Read Status
+    read   Boolean   @default(false)
+    readAt DateTime?
+
+    // Related Entities
+    projectId String?
+    project   Project? @relation(fields: [projectId], references: [id])
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([userId, read])
+    @@index([type])
+    @@index([category])
+    @@index([priority])
+    @@index([createdAt])
+    @@index([projectId])
+    @@map("notifications")
+}
+
+// ==========================================================================================
+// SYSTEM & AUDIT MODELS
+// ==========================================================================================
+
+// --------------------------------------------------
+// AUTH AUDIT LOG MODEL (System Logs)
+// --------------------------------------------------
 
 model AuthAuditLog {
     id     String  @id @default(uuid())
@@ -347,8 +923,11 @@ model AuthAuditLog {
 
     // Event Info
     event       String // "LOGIN_SUCCESS", "LOGIN_FAILED", "OTP_SENT", etc.
-    eventType   String // "AUTH", "ACCOUNT", "SECURITY"
-    description String? @db.Text
+    eventType   SystemLogType // Enum type for filtering
+    description String?       @db.Text
+
+    // Status
+    status SystemLogStatus @default(SUCCESS)
 
     // Metadata
     metadata Json? // Additional data
@@ -366,13 +945,15 @@ model AuthAuditLog {
     @@index([userId])
     @@index([event])
     @@index([eventType])
+    @@index([status])
     @@index([createdAt])
+    @@index([eventType, status]) // Composite index for filtered queries
     @@map("auth_audit_logs")
 }
 
-// ==========================
-// ACCOUNT INVITATION (Optional - for invite flow)
-// ==========================
+// --------------------------------------------------
+// ACCOUNT INVITATION MODEL
+// --------------------------------------------------
 
 model AccountInvitation {
     id        String   @id @default(uuid())
@@ -398,5 +979,29 @@ model AccountInvitation {
     @@index([token])
     @@index([status])
     @@index([expiresAt])
+    @@index([role])
     @@map("account_invitations")
 }
+
+// ==========================================================================================
+// END OF SCHEMA
+// ==========================================================================================
+// 
+// TOTAL MODELS: 21
+// - User & Auth: User, Session, OTPCode, OAuthProvider (4)
+// - Profiles: Client, Partner, Pentester (3)
+// - Services: ServiceCategory, SubService, SecurityCheck (3)
+// - Projects: Project, ProjectTimeline, ProjectActivity (3)
+// - Reports: Report, ReportHistory, ReportCheck (3)
+// - Notifications: Notification (1)
+// - System: AuthAuditLog, AccountInvitation (2)
+// - Partner Relations: PartnerClients (implicit join table) (1)
+//
+// TOTAL ENUMS: 11
+// - UserRole, AccountStatus, OTPType, OAuthProviderType
+// - ProjectStatus, ProjectPriority, ProjectActivityType
+// - ReportStatus
+// - NotificationType, NotificationCategory, NotificationPriority
+// - SystemLogType, SystemLogStatus
+//
+// ==========================================================================================

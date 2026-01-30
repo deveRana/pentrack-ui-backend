@@ -14,6 +14,7 @@ import { CommonModule } from './common/common.module';
 
 // Feature modules
 import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './admin/admin.module'; // ✅ NEW
 
 // Middleware
 import { RequestContextMiddleware } from '@core/context/request-context.middleware';
@@ -42,6 +43,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 
     // Feature modules
     AuthModule,
+    AdminModule, // ✅ NEW
   ],
   controllers: [],
   providers: [
