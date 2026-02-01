@@ -30,14 +30,14 @@ const users = [
     // R_ADMIN (Rivedix Admin) - OAuth Login
     // ==========================================
     {
-        email: 'nilesh.mankape@rivedix.com',
-        firstName: 'Akshay',
-        lastName: 'Kondke',
-        phone: '+919356560452',
+        email: 'shantanu.jadhav@rivedix.com',
+        firstName: 'Shantanu',
+        lastName: 'Jadhav',
+        phone: '+918857848222',
         role: UserRole.R_ADMIN,
         status: AccountStatus.ACTIVE,
         password: null, // OAuth-based login
-        companyEmail: 'nilesh.mankape@rivedix.com',
+        companyEmail: 'info@rivedix.com',
         companyDomain: 'rivedix.com',
         isEmailVerified: true,
         emailVerifiedAt: new Date(),
@@ -50,7 +50,7 @@ const users = [
         role: UserRole.R_ADMIN,
         status: AccountStatus.ACTIVE,
         password: null,
-        companyEmail: 'radmin2@rivedix.com',
+        companyEmail: 'info@rivedix.com',
         companyDomain: 'rivedix.com',
         isEmailVerified: true,
         emailVerifiedAt: new Date(),
