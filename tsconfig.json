@@ -23,6 +23,7 @@
     "noFallthroughCasesInSwitch": false,
     "paths": {
       "@auth/*": ["src/auth/*"],
+      "@admin/*": ["src/admin/*"],
       "@common/*": ["src/common/*"],
       "@config/*": ["src/config/*"],
       "@core/*": ["src/core/*"],

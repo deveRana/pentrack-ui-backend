@@ -14,7 +14,11 @@ import { CommonModule } from './common/common.module';
 
 // Feature modules
 import { AuthModule } from './auth/auth.module';
-import { AdminModule } from './admin/admin.module'; // ✅ NEW
+import { AdminModule } from './admin/admin.module';
+import { ClientModule } from './client/client.module'; // ✅ NEW
+import { PentesterModule } from './pentester/pentester.module'; // ✅ NEW
+import { RAdminModule } from './r-admin/r-admin.module'; // ✅ NEW
+import { NotificationsModule } from './notifications/notifications.module'; // ✅ NEW
 
 // Middleware
 import { RequestContextMiddleware } from '@core/context/request-context.middleware';
@@ -43,7 +47,11 @@ import { RolesGuard } from './auth/guards/roles.guard';
 
     // Feature modules
     AuthModule,
-    AdminModule, // ✅ NEW
+    AdminModule,
+    ClientModule, // ✅ NEW - Client features
+    PentesterModule, // ✅ NEW - Pentester features
+    RAdminModule, // ✅ NEW - R-Admin features
+    NotificationsModule, // ✅ NEW - Shared notifications
   ],
   controllers: [],
   providers: [
