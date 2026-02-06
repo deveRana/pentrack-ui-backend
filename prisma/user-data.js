@@ -43,10 +43,10 @@ const users = [
         emailVerifiedAt: new Date(),
     },
     {
-        email: 'radmin2@rivedix.com',
-        firstName: 'Second',
-        lastName: 'RAdmin',
-        phone: '+919876543212',
+        email: 'akshay.kondke@rivedix.com',
+        firstName: 'Akshay',
+        lastName: 'Kondke',
+        phone: '+919356560452',
         role: UserRole.R_ADMIN,
         status: AccountStatus.ACTIVE,
         password: null,
@@ -60,14 +60,14 @@ const users = [
     // PENTESTER - OAuth Login
     // ==========================================
     {
-        email: 'akshay.kondke@rivedix.com',
-        firstName: 'Akshay',
-        lastName: 'Kondke',
-        phone: '+919356560452',
+        email: 'pentester1@rivedix.com',
+        firstName: 'John',
+        lastName: 'Pentester',
+        phone: '+919876543213',
         role: UserRole.PENTESTER,
         status: AccountStatus.ACTIVE,
         password: null, // OAuth-based login
-        companyEmail: 'akshay.kondke@rivedix.com',
+        companyEmail: 'pentester1@rivedix.com',
         companyDomain: 'rivedix.com',
         isEmailVerified: true,
         emailVerifiedAt: new Date(),

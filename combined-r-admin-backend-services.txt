@@ -1,0 +1,401 @@
+===== src/r-admin/services/r-admin-pentesters.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminPentestersRepository } from '../repositories/r-admin-pentesters.repository';
+@Injectable()
+export class RAdminPentestersService {
+    constructor(private readonly pentestersRepository: RAdminPentestersRepository) { }
+    async findAll(query: any) {
+        const { pentesters, total } = await this.pentestersRepository.findAll(query);
+        return { stats: { total }, data: pentesters, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+}
+
+
+===== src/r-admin/services/r-admin-projects.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminProjectsRepository } from '../repositories/r-admin-projects.repository';
+import { CreateProjectDto } from '../dto/create-project.dto';
+@Injectable()
+export class RAdminProjectsService {
+    constructor(private readonly projectsRepository: RAdminProjectsRepository) { }
+    async findAll(userId: string, query: any) {
+        const { projects, total } = await this.projectsRepository.findAll({ radminId: userId, ...query });
+        const data = projects.map(p => ({ id: p.id, name: p.name, client: p.client.companyName, services: p.services, pentester: p.pentester ? `${p.pentester.firstName} ${p.pentester.lastName}` : 'Not Assigned', status: p.status.toLowerCase(), priority: p.priority.toLowerCase(), startDate: p.startDate?.toISOString(), endDate: p.endDate?.toISOString(), progress: p.progress }));
+        const stats = { totalProjects: total, activeProjects: projects.filter(p => p.status === 'IN_PROGRESS').length, completedProjects: projects.filter(p => p.status === 'COMPLETED').length };
+        return { stats, data, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+    async create(dto: CreateProjectDto, userId: string) {
+        return this.projectsRepository.create(dto, userId);
+    }
+}
+
+
+===== src/r-admin/services/r-admin-reports.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminReportsRepository } from '../repositories/r-admin-reports.repository';
+@Injectable()
+export class RAdminReportsService {
+    constructor(private readonly reportsRepository: RAdminReportsRepository) { }
+    async findAll(userId: string, query: any) {
+        const { reports, total } = await this.reportsRepository.findAll({ radminId: userId, ...query });
+        return { stats: { total }, data: reports, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+}
+
+
+===== src/r-admin/services/r-admin-partners.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminPartnersRepository } from '../repositories/r-admin-partners.repository';
+@Injectable()
+export class RAdminPartnersService {
+    constructor(private readonly partnersRepository: RAdminPartnersRepository) { }
+    async findAll(query: any) {
+        const { partners, total } = await this.partnersRepository.findAll(query);
+        return { stats: { total }, data: partners, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+}
+
+
+===== src/r-admin/services/r-admin-services.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminServicesRepository } from '../repositories/r-admin-services.repository';
+@Injectable()
+export class RAdminServicesService {
+    constructor(private readonly servicesRepository: RAdminServicesRepository) { }
+    async findAll() {
+        return this.servicesRepository.findAll();
+    }
+}
+
+
+===== src/r-admin/services/r-admin-checks.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminChecksRepository } from '../repositories/r-admin-checks.repository';
+@Injectable()
+export class RAdminChecksService {
+    constructor(private readonly checksRepository: RAdminChecksRepository) { }
+    async findAll() {
+        return this.checksRepository.findAll();
+    }
+}
+
+
+===== src/r-admin/services/r-admin-reviews.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminReviewsService {
+    constructor(private readonly prisma: PrismaService) { }
+    async getPendingReviews(radminId: string) {
+        return this.prisma.report.findMany({ where: { project: { radminId }, status: 'PENDING' }, include: { project: { include: { client: true } }, pentester: true } });
+    }
+}
+
+
+===== src/common/utils/response-builder.util.ts =====
+// src/common/utils/response-builder.util.ts
+
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { RequestContextService } from '@core/context/request-context.service';
+import {
+    ISuccessResponse,
+    IErrorResponse,
+    IWarningResponse,
+    IInfoResponse,
+    IResponseMeta,
+    IPaginatedData,
+    IPaginationMeta,
+} from '@common/types/response.types';
+
+/**
+ * Response Builder Utility
+ * 
+ * Centralized utility for building standardized API responses
+ * Automatically handles meta field based on environment configuration
+ */
+@Injectable()
+export class ResponseBuilder {
+    private readonly includeMeta: boolean;
+    private readonly includeMetaInProduction: boolean;
+    private readonly includeRequestId: boolean;
+    private readonly includeTimestamp: boolean;
+    private readonly includePath: boolean;
+
+    constructor(
+        private readonly configService: ConfigService,
+        private readonly contextService: RequestContextService,
+    ) {
+        const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+
+        // Default: Include meta in dev/staging, exclude in production
+        this.includeMetaInProduction = this.configService.get<string>('INCLUDE_META_IN_PRODUCTION', 'false') === 'true';
+        this.includeMeta = nodeEnv !== 'production' || this.includeMetaInProduction;
+
+        // Granular control over meta fields
+        this.includeRequestId = this.configService.get<string>('INCLUDE_REQUEST_ID', 'true') === 'true';
+        this.includeTimestamp = this.configService.get<string>('INCLUDE_TIMESTAMP', 'true') === 'true';
+        this.includePath = this.configService.get<string>('INCLUDE_PATH', nodeEnv !== 'production' ? 'true' : 'false') === 'true';
+    }
+
+    // ============================================
+    // META BUILDER
+    // ============================================
+
+    /**
+     * Build meta object based on environment configuration
+     * Returns undefined if meta should be excluded
+     */
+    private buildMeta(path?: string): IResponseMeta | undefined {
+        if (!this.includeMeta) {
+            return undefined;
+        }
+
+        const context = this.contextService.getContext();
+        const meta: Partial<IResponseMeta> = {};
+
+        if (this.includeTimestamp) {
+            meta.timestamp = new Date().toISOString();
+        }
+
+        if (this.includeRequestId && context?.requestId) {
+            meta.requestId = context.requestId;
+        }
+
+        if (this.includePath && path) {
+            meta.path = path;
+        }
+
+        if (Object.keys(meta).length === 0) {
+            return undefined;
+        }
+
+        return meta as IResponseMeta;
+    }
+
+    // ============================================
+    // SUCCESS RESPONSES
+    // ============================================
+
+    /**
+     * Build success response
+     */
+    success<T>(
+        data: T,
+        message?: string,
+        path?: string,
+    ): Omit<ISuccessResponse<T>, 'success'> {
+        const meta = this.buildMeta(path);
+
+        const response: any = {
+            success: true,
+            data,
+        };
+
+        if (message) {
+            response.message = message;
+        }
+
+        if (meta) {
+            response.meta = meta;
+        }
+
+        return response;
+    }
+
+    /**
+     * Build paginated success response
+     */
+    paginated<T>(
+        items: T[],
+        pagination: IPaginationMeta,
+        message?: string,
+        path?: string,
+    ): Omit<ISuccessResponse<IPaginatedData<T>>, 'success'> {
+        const data: IPaginatedData<T> = {
+            items,
+            pagination,
+        };
+
+        return this.success(data, message, path);
+    }
+
+    // ============================================
+    // WARNING RESPONSES
+    // ============================================
+
+    /**
+     * Build warning response (success with non-critical issues)
+     */
+    warning<T>(
+        data: T,
+        warningCode: string,
+        warningMessage: string,
+        path?: string,
+    ): Omit<IWarningResponse<T>, 'success'> {
+        const meta = this.buildMeta(path);
+
+        const response: any = {
+            success: true,
+            data,
+            warning: {
+                code: warningCode,
+                message: warningMessage,
+            },
+        };
+
+        if (meta) {
+            response.meta = meta;
+        }
+
+        return response;
+    }
+
+    // ============================================
+    // INFO RESPONSES
+    // ============================================
+
+    /**
+     * Build info response (success with additional information)
+     */
+    info<T>(
+        data: T,
+        infoCode: string,
+        infoMessage: string,
+        path?: string,
+    ): Omit<IInfoResponse<T>, 'success'> {
+        const meta = this.buildMeta(path);
+
+        const response: any = {
+            success: true,
+            data,
+            info: {
+                code: infoCode,
+                message: infoMessage,
+            },
+        };
+
+        if (meta) {
+            response.meta = meta;
+        }
+
+        return response;
+    }
+
+    // ============================================
+    // ERROR RESPONSES (Used by Exception Filters)
+    // ============================================
+
+    /**
+     * Build error response
+     */
+    error(
+        code: string,
+        message: string,
+        statusCode: number,
+        path?: string,
+        details?: any,
+    ): Omit<IErrorResponse, 'success'> {
+        const meta = this.buildMeta(path);
+
+        const response: any = {
+            success: false,
+            error: {
+                code,
+                message,
+                statusCode,
+                ...(details && { details }),
+            },
+        };
+
+        if (meta) {
+            response.meta = meta;
+        }
+
+        return response;
+    }
+
+    // ============================================
+    // HELPER METHODS
+    // ============================================
+
+    /**
+     * Check if meta should be included in responses
+     */
+    shouldIncludeMeta(): boolean {
+        return this.includeMeta;
+    }
+
+    /**
+     * Get current environment
+     */
+    getEnvironment(): string {
+        return this.configService.get<string>('NODE_ENV', 'development');
+    }
+
+    /**
+     * Build pagination meta from query params
+     */
+    buildPaginationMeta(
+        total: number,
+        page: number,
+        limit: number,
+    ): IPaginationMeta {
+        const totalPages = Math.ceil(total / limit);
+
+        return {
+            total,
+            page,
+            limit,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1,
+        };
+    }
+}
+
+
+===== src/r-admin/repositories/r-admin.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async getDashboardStats(radminId: string) {
+        const [activeProjects, pendingReviews, overdueProjects, upcomingDeadlines] = await Promise.all([
+            this.prisma.project.count({ where: { radminId, status: { in: ['IN_PROGRESS', 'NOT_STARTED'] }, deletedAt: null } }),
+            this.prisma.report.count({ where: { project: { radminId }, status: 'PENDING' } }),
+            this.prisma.project.count({ where: { radminId, status: 'OVERDUE', deletedAt: null } }),
+            this.prisma.project.count({ where: { radminId, deadline: { lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }, status: { notIn: ['COMPLETED'] }, deletedAt: null } }),
+        ]);
+        return { activeProjects, pendingReviews, overdueProjects, upcomingDeadlines };
+    }
+}
+
+
+===== src/r-admin/repositories/r-admin-clients.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminClientsRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll(params: { page: number; limit: number; search?: string }) {
+        const { page, limit, search } = params;
+        const skip = (page - 1) * limit;
+        const where: any = { deletedAt: null };
+        if (search) where.OR = [{ companyName: { contains: search, mode: 'insensitive' } }, { pointOfContactEmail: { contains: search, mode: 'insensitive' } }];
+        const [clients, total] = await Promise.all([
+            this.prisma.client.findMany({ where, skip, take: limit, include: { user: true, partner: true } }),
+            this.prisma.client.count({ where }),
+        ]);
+        return { clients, total };
+    }
+    async create(data: any, createdById: string) {
+        return this.prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({ data: { email: data.pointOfContactEmail, firstName: data.pointOfContact.split(' ')[0], lastName: data.pointOfContact.split(' ')[1] || '', phone: data.pointOfContactPhone, role: 'CLIENT', status: 'ACTIVE', isEmailVerified: true, createdById } });
+            return tx.client.create({ data: { userId: user.id, clientId: `CLI-${Date.now()}`, companyName: data.companyName, industry: data.industry, address: data.address, website: data.website, pointOfContact: data.pointOfContact, pointOfContactEmail: data.pointOfContactEmail, pointOfContactPhone: data.pointOfContactPhone, hasPartner: data.hasPartner || false, partnerId: data.partnerId, createdById } });
+        });
+    }
+}
+
+

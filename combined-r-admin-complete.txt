@@ -1,0 +1,664 @@
+===== src\r-admin\r-admin.module.ts =====
+import { Module } from '@nestjs/common';
+import { PrismaModule } from '@core/database/prisma.module';
+import { MailModule } from '@core/mail/mail.module';
+import { LoggerModule } from '@core/logger/logger.module';
+import { AuthModule } from '@auth/auth.module';
+
+import { RAdminController } from './controllers/r-admin.controller';
+import { RAdminProjectsController } from './controllers/r-admin-projects.controller';
+import { RAdminReportsController } from './controllers/r-admin-reports.controller';
+import { RAdminClientsController } from './controllers/r-admin-clients.controller';
+import { RAdminPentestersController } from './controllers/r-admin-pentesters.controller';
+import { RAdminPartnersController } from './controllers/r-admin-partners.controller';
+import { RAdminServicesController } from './controllers/r-admin-services.controller';
+import { RAdminChecksController } from './controllers/r-admin-checks.controller';
+import { RAdminReviewsController } from './controllers/r-admin-reviews.controller';
+
+import { RAdminService } from './services/r-admin.service';
+import { RAdminProjectsService } from './services/r-admin-projects.service';
+import { RAdminReportsService } from './services/r-admin-reports.service';
+import { RAdminClientsService } from './services/r-admin-clients.service';
+import { RAdminPentestersService } from './services/r-admin-pentesters.service';
+import { RAdminPartnersService } from './services/r-admin-partners.service';
+import { RAdminServicesService } from './services/r-admin-services.service';
+import { RAdminChecksService } from './services/r-admin-checks.service';
+import { RAdminReviewsService } from './services/r-admin-reviews.service';
+
+import { RAdminRepository } from './repositories/r-admin.repository';
+import { RAdminProjectsRepository } from './repositories/r-admin-projects.repository';
+import { RAdminReportsRepository } from './repositories/r-admin-reports.repository';
+import { RAdminClientsRepository } from './repositories/r-admin-clients.repository';
+import { RAdminPentestersRepository } from './repositories/r-admin-pentesters.repository';
+import { RAdminPartnersRepository } from './repositories/r-admin-partners.repository';
+import { RAdminServicesRepository } from './repositories/r-admin-services.repository';
+import { RAdminChecksRepository } from './repositories/r-admin-checks.repository';
+
+@Module({
+    imports: [PrismaModule, MailModule, LoggerModule, AuthModule],
+    controllers: [
+        RAdminController,
+        RAdminProjectsController,
+        RAdminReportsController,
+        RAdminClientsController,
+        RAdminPentestersController,
+        RAdminPartnersController,
+        RAdminServicesController,
+        RAdminChecksController,
+        RAdminReviewsController,
+    ],
+    providers: [
+        RAdminService,
+        RAdminProjectsService,
+        RAdminReportsService,
+        RAdminClientsService,
+        RAdminPentestersService,
+        RAdminPartnersService,
+        RAdminServicesService,
+        RAdminChecksService,
+        RAdminReviewsService,
+        RAdminRepository,
+        RAdminProjectsRepository,
+        RAdminReportsRepository,
+        RAdminClientsRepository,
+        RAdminPentestersRepository,
+        RAdminPartnersRepository,
+        RAdminServicesRepository,
+        RAdminChecksRepository,
+    ],
+})
+export class RAdminModule { }
+
+
+===== src\r-admin\controllers\r-admin.controller.ts =====
+import { Controller, Get, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import type { User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import { RAdminService } from '../services/r-admin.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { CurrentUser } from '@auth/decorators/current-user.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+@Controller('r-admin')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminController {
+    constructor(private readonly radminService: RAdminService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get('dashboard')
+    @HttpCode(HttpStatus.OK)
+    async getDashboard(@CurrentUser() user: User, @Req() req: Request) {
+        const dashboard = await this.radminService.getDashboard(user.id);
+        return this.responseBuilder.success(dashboard, undefined, req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-checks.controller.ts =====
+import { Controller, Get, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import { UserRole } from '@prisma/client';
+import { RAdminChecksService } from '../services/r-admin-checks.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+@Controller('r-admin/checks')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminChecksController {
+    constructor(private readonly checksService: RAdminChecksService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async findAll(@Req() req: Request) {
+        const checks = await this.checksService.findAll();
+        return this.responseBuilder.success(checks, undefined, req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-clients.controller.ts =====
+import { Controller, Get, Post, Body, Query, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import type { User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import { RAdminClientsService } from '../services/r-admin-clients.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { CurrentUser } from '@auth/decorators/current-user.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+import { CreateClientDto } from '../dto/create-client.dto';
+import { QueryDto } from '../dto/query.dto';
+@Controller('r-admin/clients')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminClientsController {
+    constructor(private readonly clientsService: RAdminClientsService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async findAll(@Query() query: QueryDto, @Req() req: Request) {
+        const result = await this.clientsService.findAll(query);
+        return this.responseBuilder.success({ stats: result.stats, data: result.data }, undefined, req.url);
+    }
+    @Post()
+    @HttpCode(HttpStatus.CREATED)
+    async create(@CurrentUser() user: User, @Body() dto: CreateClientDto, @Req() req: Request) {
+        const client = await this.clientsService.create(dto, user.id);
+        return this.responseBuilder.success(client, 'Client created successfully', req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-partners.controller.ts =====
+import { Controller, Get, Query, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import { UserRole } from '@prisma/client';
+import { RAdminPartnersService } from '../services/r-admin-partners.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+import { QueryDto } from '../dto/query.dto';
+@Controller('r-admin/partners')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminPartnersController {
+    constructor(private readonly partnersService: RAdminPartnersService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async findAll(@Query() query: QueryDto, @Req() req: Request) {
+        const result = await this.partnersService.findAll(query);
+        return this.responseBuilder.success({ stats: result.stats, data: result.data }, undefined, req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-pentesters.controller.ts =====
+import { Controller, Get, Query, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import { UserRole } from '@prisma/client';
+import { RAdminPentestersService } from '../services/r-admin-pentesters.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+import { QueryDto } from '../dto/query.dto';
+@Controller('r-admin/pentesters')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminPentestersController {
+    constructor(private readonly pentestersService: RAdminPentestersService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async findAll(@Query() query: QueryDto, @Req() req: Request) {
+        const result = await this.pentestersService.findAll(query);
+        return this.responseBuilder.success({ stats: result.stats, data: result.data }, undefined, req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-projects.controller.ts =====
+import { Controller, Get, Post, Body, Query, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import type { User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import { RAdminProjectsService } from '../services/r-admin-projects.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { CurrentUser } from '@auth/decorators/current-user.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+import { CreateProjectDto } from '../dto/create-project.dto';
+import { QueryDto } from '../dto/query.dto';
+@Controller('r-admin/projects')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminProjectsController {
+    constructor(private readonly projectsService: RAdminProjectsService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async findAll(@CurrentUser() user: User, @Query() query: QueryDto, @Req() req: Request) {
+        const result = await this.projectsService.findAll(user.id, query);
+        return this.responseBuilder.success({ stats: result.stats, data: result.data }, undefined, req.url);
+    }
+    @Post()
+    @HttpCode(HttpStatus.CREATED)
+    async create(@CurrentUser() user: User, @Body() dto: CreateProjectDto, @Req() req: Request) {
+        const project = await this.projectsService.create(dto, user.id);
+        return this.responseBuilder.success(project, 'Project created successfully', req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-reports.controller.ts =====
+import { Controller, Get, Query, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import type { User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import { RAdminReportsService } from '../services/r-admin-reports.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { CurrentUser } from '@auth/decorators/current-user.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+import { QueryDto } from '../dto/query.dto';
+@Controller('r-admin/reports')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminReportsController {
+    constructor(private readonly reportsService: RAdminReportsService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async findAll(@CurrentUser() user: User, @Query() query: QueryDto, @Req() req: Request) {
+        const result = await this.reportsService.findAll(user.id, query);
+        return this.responseBuilder.success({ stats: result.stats, data: result.data }, undefined, req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-reviews.controller.ts =====
+import { Controller, Get, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import type { User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import { RAdminReviewsService } from '../services/r-admin-reviews.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { CurrentUser } from '@auth/decorators/current-user.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+@Controller('r-admin/reviews')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminReviewsController {
+    constructor(private readonly reviewsService: RAdminReviewsService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get('pending')
+    @HttpCode(HttpStatus.OK)
+    async getPendingReviews(@CurrentUser() user: User, @Req() req: Request) {
+        const reviews = await this.reviewsService.getPendingReviews(user.id);
+        return this.responseBuilder.success(reviews, undefined, req.url);
+    }
+}
+
+
+===== src\r-admin\controllers\r-admin-services.controller.ts =====
+import { Controller, Get, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import { UserRole } from '@prisma/client';
+import { RAdminServicesService } from '../services/r-admin-services.service';
+import { AuthGuard } from '@auth/guards/auth.guard';
+import { RolesGuard } from '@auth/guards/roles.guard';
+import { Roles } from '@auth/decorators/roles.decorator';
+import { ResponseBuilder } from '@common/utils/response-builder.util';
+@Controller('r-admin/service-categories')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRole.R_ADMIN)
+export class RAdminServicesController {
+    constructor(private readonly servicesService: RAdminServicesService, private readonly responseBuilder: ResponseBuilder) { }
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async findAll(@Req() req: Request) {
+        const services = await this.servicesService.findAll();
+        return this.responseBuilder.success(services, undefined, req.url);
+    }
+}
+
+
+===== src\r-admin\services\r-admin.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminRepository } from '../repositories/r-admin.repository';
+@Injectable()
+export class RAdminService {
+    constructor(private readonly radminRepository: RAdminRepository) { }
+    async getDashboard(userId: string) {
+        const stats = await this.radminRepository.getDashboardStats(userId);
+        return { stats, recentActivities: [], upcomingDeadlines: [], pendingReviews: [] };
+    }
+}
+
+
+===== src\r-admin\services\r-admin-checks.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminChecksRepository } from '../repositories/r-admin-checks.repository';
+@Injectable()
+export class RAdminChecksService {
+    constructor(private readonly checksRepository: RAdminChecksRepository) { }
+    async findAll() {
+        return this.checksRepository.findAll();
+    }
+}
+
+
+===== src\r-admin\services\r-admin-clients.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminClientsRepository } from '../repositories/r-admin-clients.repository';
+import { CreateClientDto } from '../dto/create-client.dto';
+@Injectable()
+export class RAdminClientsService {
+    constructor(private readonly clientsRepository: RAdminClientsRepository) { }
+    async findAll(query: any) {
+        const { clients, total } = await this.clientsRepository.findAll(query);
+        const data = clients.map(c => ({ id: c.id, companyName: c.companyName, industry: c.industry, address: c.address, pointOfContact: c.pointOfContact, pointOfContactEmail: c.pointOfContactEmail, pointOfContactPhone: c.pointOfContactPhone, totalProjects: c.totalProjects, activeProjects: c.activeProjects, status: c.user.status.toLowerCase(), createdAt: c.createdAt.toISOString() }));
+        return { stats: { total }, data, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+    async create(dto: CreateClientDto, userId: string) {
+        return this.clientsRepository.create(dto, userId);
+    }
+}
+
+
+===== src\r-admin\services\r-admin-partners.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminPartnersRepository } from '../repositories/r-admin-partners.repository';
+@Injectable()
+export class RAdminPartnersService {
+    constructor(private readonly partnersRepository: RAdminPartnersRepository) { }
+    async findAll(query: any) {
+        const { partners, total } = await this.partnersRepository.findAll(query);
+        return { stats: { total }, data: partners, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+}
+
+
+===== src\r-admin\services\r-admin-pentesters.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminPentestersRepository } from '../repositories/r-admin-pentesters.repository';
+@Injectable()
+export class RAdminPentestersService {
+    constructor(private readonly pentestersRepository: RAdminPentestersRepository) { }
+    async findAll(query: any) {
+        const { pentesters, total } = await this.pentestersRepository.findAll(query);
+        return { stats: { total }, data: pentesters, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+}
+
+
+===== src\r-admin\services\r-admin-projects.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminProjectsRepository } from '../repositories/r-admin-projects.repository';
+import { CreateProjectDto } from '../dto/create-project.dto';
+@Injectable()
+export class RAdminProjectsService {
+    constructor(private readonly projectsRepository: RAdminProjectsRepository) { }
+    async findAll(userId: string, query: any) {
+        const { projects, total } = await this.projectsRepository.findAll({ radminId: userId, ...query });
+        const data = projects.map(p => ({ id: p.id, name: p.name, client: p.client.companyName, services: p.services, pentester: p.pentester ? `${p.pentester.firstName} ${p.pentester.lastName}` : 'Not Assigned', status: p.status.toLowerCase(), priority: p.priority.toLowerCase(), startDate: p.startDate?.toISOString(), endDate: p.endDate?.toISOString(), progress: p.progress }));
+        const stats = { totalProjects: total, activeProjects: projects.filter(p => p.status === 'IN_PROGRESS').length, completedProjects: projects.filter(p => p.status === 'COMPLETED').length };
+        return { stats, data, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+    async create(dto: CreateProjectDto, userId: string) {
+        return this.projectsRepository.create(dto, userId);
+    }
+}
+
+
+===== src\r-admin\services\r-admin-reports.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminReportsRepository } from '../repositories/r-admin-reports.repository';
+@Injectable()
+export class RAdminReportsService {
+    constructor(private readonly reportsRepository: RAdminReportsRepository) { }
+    async findAll(userId: string, query: any) {
+        const { reports, total } = await this.reportsRepository.findAll({ radminId: userId, ...query });
+        return { stats: { total }, data: reports, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit), hasNextPage: query.page < Math.ceil(total / query.limit), hasPreviousPage: query.page > 1 } };
+    }
+}
+
+
+===== src\r-admin\services\r-admin-reviews.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminReviewsService {
+    constructor(private readonly prisma: PrismaService) { }
+    async getPendingReviews(radminId: string) {
+        return this.prisma.report.findMany({ where: { project: { radminId }, status: 'PENDING' }, include: { project: { include: { client: true } }, pentester: true } });
+    }
+}
+
+
+===== src\r-admin\services\r-admin-services.service.ts =====
+import { Injectable } from '@nestjs/common';
+import { RAdminServicesRepository } from '../repositories/r-admin-services.repository';
+@Injectable()
+export class RAdminServicesService {
+    constructor(private readonly servicesRepository: RAdminServicesRepository) { }
+    async findAll() {
+        return this.servicesRepository.findAll();
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async getDashboardStats(radminId: string) {
+        const [activeProjects, pendingReviews, overdueProjects, upcomingDeadlines] = await Promise.all([
+            this.prisma.project.count({ where: { radminId, status: { in: ['IN_PROGRESS', 'NOT_STARTED'] }, deletedAt: null } }),
+            this.prisma.report.count({ where: { project: { radminId }, status: 'PENDING' } }),
+            this.prisma.project.count({ where: { radminId, status: 'OVERDUE', deletedAt: null } }),
+            this.prisma.project.count({ where: { radminId, deadline: { lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }, status: { notIn: ['COMPLETED'] }, deletedAt: null } }),
+        ]);
+        return { activeProjects, pendingReviews, overdueProjects, upcomingDeadlines };
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin-checks.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminChecksRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll() {
+        return this.prisma.securityCheck.findMany();
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin-clients.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminClientsRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll(params: { page: number; limit: number; search?: string }) {
+        const { page, limit, search } = params;
+        const skip = (page - 1) * limit;
+        const where: any = { deletedAt: null };
+        if (search) where.OR = [{ companyName: { contains: search, mode: 'insensitive' } }, { pointOfContactEmail: { contains: search, mode: 'insensitive' } }];
+        const [clients, total] = await Promise.all([
+            this.prisma.client.findMany({ where, skip, take: limit, include: { user: true, partner: true } }),
+            this.prisma.client.count({ where }),
+        ]);
+        return { clients, total };
+    }
+    async create(data: any, createdById: string) {
+        return this.prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({ data: { email: data.pointOfContactEmail, firstName: data.pointOfContact.split(' ')[0], lastName: data.pointOfContact.split(' ')[1] || '', phone: data.pointOfContactPhone, role: 'CLIENT', status: 'ACTIVE', isEmailVerified: true, createdById } });
+            return tx.client.create({ data: { userId: user.id, clientId: `CLI-${Date.now()}`, companyName: data.companyName, industry: data.industry, address: data.address, website: data.website, pointOfContact: data.pointOfContact, pointOfContactEmail: data.pointOfContactEmail, pointOfContactPhone: data.pointOfContactPhone, hasPartner: data.hasPartner || false, partnerId: data.partnerId, createdById } });
+        });
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin-partners.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminPartnersRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll(params: { page: number; limit: number }) {
+        const { page, limit } = params;
+        const skip = (page - 1) * limit;
+        const [partners, total] = await Promise.all([
+            this.prisma.partner.findMany({ skip, take: limit, include: { user: true } }),
+            this.prisma.partner.count(),
+        ]);
+        return { partners, total };
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin-pentesters.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminPentestersRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll(params: { page: number; limit: number }) {
+        const { page, limit } = params;
+        const skip = (page - 1) * limit;
+        const [pentesters, total] = await Promise.all([
+            this.prisma.pentester.findMany({ skip, take: limit, include: { user: true } }),
+            this.prisma.pentester.count(),
+        ]);
+        return { pentesters, total };
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin-projects.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminProjectsRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll(params: { radminId: string; page: number; limit: number; search?: string; status?: string }) {
+        const { radminId, page, limit, search, status } = params;
+        const skip = (page - 1) * limit;
+        const where: any = { radminId, deletedAt: null };
+        if (search) where.OR = [{ name: { contains: search, mode: 'insensitive' } }];
+        if (status && status !== 'all') where.status = status;
+        const [projects, total] = await Promise.all([
+            this.prisma.project.findMany({ where, skip, take: limit, include: { client: true, pentester: true, serviceCategory: true } }),
+            this.prisma.project.count({ where }),
+        ]);
+        return { projects, total };
+    }
+    async create(data: any, radminId: string) {
+        return this.prisma.project.create({ data: { ...data, radminId, createdBy: radminId } });
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin-reports.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminReportsRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll(params: { radminId: string; page: number; limit: number }) {
+        const { radminId, page, limit } = params;
+        const skip = (page - 1) * limit;
+        const [reports, total] = await Promise.all([
+            this.prisma.report.findMany({ where: { project: { radminId } }, skip, take: limit, include: { project: { include: { client: true } }, pentester: true } }),
+            this.prisma.report.count({ where: { project: { radminId } } }),
+        ]);
+        return { reports, total };
+    }
+}
+
+
+===== src\r-admin\repositories\r-admin-services.repository.ts =====
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@core/database/prisma.service';
+@Injectable()
+export class RAdminServicesRepository {
+    constructor(private readonly prisma: PrismaService) { }
+    async findAll() {
+        return this.prisma.serviceCategory.findMany({ include: { subServices: true } });
+    }
+}
+
+
+===== src\r-admin\dto\create-client.dto.ts =====
+import { IsString, IsNotEmpty, IsEmail, IsOptional, IsBoolean, IsUUID, Matches } from 'class-validator';
+import { PHONE_REGEX } from '@admin/constants/admin.constants';
+export class CreateClientDto {
+    @IsString() @IsNotEmpty() companyName: string;
+    @IsString() @IsNotEmpty() industry: string;
+    @IsString() @IsNotEmpty() address: string;
+    @IsString() @IsOptional() website?: string;
+    @IsString() @IsNotEmpty() pointOfContact: string;
+    @IsEmail() @IsNotEmpty() pointOfContactEmail: string;
+    @IsString() @Matches(PHONE_REGEX) pointOfContactPhone: string;
+    @IsBoolean() @IsOptional() hasPartner?: boolean;
+    @IsUUID() @IsOptional() partnerId?: string;
+}
+export class UpdateClientDto extends CreateClientDto { }
+
+
+===== src\r-admin\dto\create-project.dto.ts =====
+import { IsString, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
+export class CreateProjectDto {
+    @IsString() @IsNotEmpty() name: string;
+    @IsString() @IsOptional() description?: string;
+    @IsUUID() @IsNotEmpty() clientId: string;
+    @IsUUID() @IsOptional() pentesterId?: string;
+    @IsString() @IsOptional() scopeOfWork?: string;
+}
+export class UpdateProjectDto extends CreateProjectDto { }
+
+
+===== src\r-admin\dto\query.dto.ts =====
+import { IsOptional, IsInt, Min, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+export class QueryDto {
+    @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+    @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number = 10;
+    @IsOptional() @IsString() search?: string;
+    @IsOptional() @IsString() status?: string;
+}
+
+
+===== src\r-admin\types\r-admin-response.types.ts =====
+export interface RAdminDashboardStats {
+    activeProjects: number;
+    pendingReviews: number;
+    overdueProjects: number;
+    upcomingDeadlines: number;
+}
+export interface ClientListItem {
+    id: string;
+    companyName: string;
+    industry: string;
+    address: string;
+    pointOfContact: string;
+    pointOfContactEmail: string;
+    pointOfContactPhone: string;
+    totalProjects: number;
+    activeProjects: number;
+    status: string;
+    createdAt: string;
+}
+export interface PentesterListItem {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    specialization: string;
+    activeProjects: number;
+    completedProjects: number;
+    status: string;
+    createdAt: string;
+}
+export interface ProjectListItem {
+    id: string;
+    name: string;
+    client: string;
+    services: string[];
+    pentester: string;
+    status: string;
+    priority: string;
+    startDate: string;
+    endDate: string;
+    progress: number;
+}
+
+

@@ -8,9 +8,9 @@
  * Standard metadata included in all responses
  */
 export interface IResponseMeta {
-    timestamp: string;
-    requestId: string;
-    path: string;
+    timestamp?: string;
+    requestId?: string;
+    path?: string;
 }
 
 // ============================================
@@ -24,7 +24,7 @@ export interface ISuccessResponse<T = any> {
     success: true;
     message?: string;
     data: T;
-    meta: IResponseMeta;
+    meta?: IResponseMeta;
 }
 
 // ============================================
@@ -42,7 +42,7 @@ export interface IErrorResponse {
         statusCode: number;
         details?: any;
     };
-    meta: IResponseMeta;
+    meta?: IResponseMeta;
 }
 
 // ============================================
@@ -59,7 +59,7 @@ export interface IWarningResponse<T = any> {
         code: string;
         message: string;
     };
-    meta: IResponseMeta;
+    meta?: IResponseMeta;
 }
 
 // ============================================
@@ -76,7 +76,7 @@ export interface IInfoResponse<T = any> {
         code: string;
         message: string;
     };
-    meta: IResponseMeta;
+    meta?: IResponseMeta;
 }
 
 // ============================================
