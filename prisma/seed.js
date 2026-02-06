@@ -105,7 +105,7 @@ async function main() {
     console.log('  Note: Use Google OAuth with @rivedix.com email');
     console.log('');
     console.log('PENTESTER (OAuth Login):');
-    console.log('  Email: pentester1@rivedix.com');
+    console.log('  Email: akshay.kondke@rivedix.com');
     console.log('  Note: Use Google OAuth with @rivedix.com email');
     console.log('');
     console.log('CLIENT (OTP Login):');

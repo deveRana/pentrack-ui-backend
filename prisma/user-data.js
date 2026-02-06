@@ -60,14 +60,14 @@ const users = [
     // PENTESTER - OAuth Login
     // ==========================================
     {
-        email: 'pentester1@rivedix.com',
-        firstName: 'John',
-        lastName: 'Pentester',
-        phone: '+919876543213',
+        email: 'akshay.kondke@rivedix.com',
+        firstName: 'Akshay',
+        lastName: 'Kondke',
+        phone: '+919356560452',
         role: UserRole.PENTESTER,
         status: AccountStatus.ACTIVE,
         password: null, // OAuth-based login
-        companyEmail: 'pentester1@rivedix.com',
+        companyEmail: 'akshay.kondke@rivedix.com',
         companyDomain: 'rivedix.com',
         isEmailVerified: true,
         emailVerifiedAt: new Date(),
